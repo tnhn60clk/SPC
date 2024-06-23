@@ -1,16 +1,19 @@
 #!/bin/bash
 
-# Gerekli Python kütüphanelerini kur
-pip install requests fake_useragent pytesseract beautifulsoup4 paramiko pysftp argparse
+# Update package list and install python3-venv if not installed
+sudo apt-get update
+sudo apt-get install -y python3-venv
 
-# Tesseract OCR'yi kurmak için gerekli komutlar (Debian/Ubuntu tabanlı sistemler için)
-if ! command -v tesseract &> /dev/null
-then
-    echo "Tesseract kurulmamış, şimdi kuruluyor..."
-    sudo apt-get update
-    sudo apt-get install tesseract-ocr -y
-else
-    echo "Tesseract zaten kurulu."
-fi
+# Create a virtual environment
+python3 -m venv venv
 
-echo "Gerekli tüm kütüphaneler ve araçlar yüklendi."
+# Activate the virtual environment
+source venv/bin/activate
+
+# Upgrade pip
+pip install --upgrade pip
+
+# Install required Python packages
+pip install requests fake_useragent colorama paramiko pysftp
+
+echo "Setup complete. To activate the virtual environment, run 'source venv/bin/activate'."
