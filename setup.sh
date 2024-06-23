@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Gerekli Python kütüphanelerini kur
-pip install requests stem fake_useragent pytesseract beautifulsoup4
+pip install requests fake_useragent pytesseract beautifulsoup4 paramiko pysftp argparse
 
 # Tesseract OCR'yi kurmak için gerekli komutlar (Debian/Ubuntu tabanlı sistemler için)
 if ! command -v tesseract &> /dev/null
