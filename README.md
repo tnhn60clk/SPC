@@ -1,8 +1,8 @@
-# Brute Force Tool
+# ⚔️ Brute Force Tool
 
 Bu araç, HTTP, FTP ve SSH servislerinde brute force saldırıları gerçekleştirmek için tasarlanmıştır. Kullanıcı adı ve parola dosyalarından ya da tekil girişlerden brute force yöntemiyle doğrulama yapabilirsiniz. Hedefe erişim sağlamak için farklı servislerin portlarını da belirleyebilirsiniz.
 
-## Özellikler
+## 🔧 Özellikler
 
 - **HTTP Brute Force**: Web login formlarında brute force saldırısı yapma.
 - **FTP Brute Force**: FTP servislerine giriş yapmak için brute force.
