@@ -27,6 +27,6 @@ Bu araç, HTTP, FTP ve SSH servislerinde brute force saldırıları gerçekleşt
 
 ## Kullanım
 - `python SPC.py --http -H example.com -u admin -P passwords.txt`
-- `python script_name.py --ftp -H example.com -U usernames.txt -P passwords.txt --port 21`
+- `python SPC.py --ftp -H example.com -U usernames.txt -P passwords.txt --port 21`
 
   **-h yap orda var herşey.**
